@@ -152,7 +152,7 @@ services:
     networks:
       - pot-storage-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9333/cluster/status"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9333/cluster/status"]
       interval: 30s
       timeout: 10s
       retries: 10
@@ -184,7 +184,7 @@ services:
     networks:
       - pot-storage-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/status"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/status"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -217,7 +217,7 @@ services:
     networks:
       - pot-storage-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8888/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8888/"]
       interval: 10s
       timeout: 5s
       retries: 5

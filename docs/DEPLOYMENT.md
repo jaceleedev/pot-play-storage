@@ -526,7 +526,7 @@ cat << 'EOF' > /opt/pot-storage/backup.sh
 #!/bin/bash
 BACKUP_DIR="/opt/pot-storage/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-docker compose -f /opt/pot-storage/deploy/docker-compose.prod.yml exec -T postgres pg_dump -U $DB_USER $DB_NAME > $BACKUP_DIR/backup_$DATE.sql
+docker compose -f /opt/pot-storage/docker-compose.prod.yml exec -T postgres pg_dump -U $DB_USER $DB_NAME > $BACKUP_DIR/backup_$DATE.sql
 gzip $BACKUP_DIR/backup_$DATE.sql
 find $BACKUP_DIR -name "*.gz" -mtime +7 -delete
 EOF

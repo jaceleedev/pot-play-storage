@@ -101,7 +101,7 @@ health_check() {
     
     log_info "서비스 헬스체크 시작..."
     
-    local max_attempts=30
+    local max_attempts=10
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do

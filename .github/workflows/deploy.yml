@@ -146,10 +146,12 @@ jobs:
           echo "🔄 최신 코드를 가져옵니다..."
           git pull origin main
           
-          # 3. 환경 변수 확인
+          # 3. 환경 변수 확인 및 생성
           if [ ! -f .env ]; then
-            echo "❌ .env 파일이 없습니다. 생성해주세요!"
-            exit 1
+            echo "⚠️ .env 파일이 없습니다. .env.example에서 복사합니다..."
+            cp .env.example .env
+            echo "✅ .env 파일이 생성되었습니다. (기본값 사용중)"
+            echo "⚠️ 나중에 다음 값들을 수정하세요: DB_PASSWORD, REDIS_PASSWORD, API_KEY"
           fi
           
           # 4. 기존 서비스 정리
@@ -200,14 +202,14 @@ jobs:
           
           # 12. 헬스 체크
           echo "❤️ 헬스 체크 중..."
-          sleep 15
-          for i in {1..30}; do
+          sleep 10
+          for i in {1..10}; do
             if curl -f http://localhost:8090/health 2>/dev/null; then
               echo "✅ 배포가 성공적으로 완료되었습니다!"
               break
             fi
-            echo "⏳ 서비스가 시작되기를 기다리는 중... ($i/30)"
-            sleep 3
+            echo "⏳ 서비스가 시작되기를 기다리는 중... ($i/10)"
+            sleep 2
           done
           
           # 13. 컨테이너 상태 확인
