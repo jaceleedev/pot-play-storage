@@ -87,8 +87,8 @@ create_directories() {
     mkdir -p data/{postgres,redis,seaweedfs/{master,volume,filer}}
     mkdir -p uploads backups
     
-    # SeaweedFS 권한 설정
-    chmod -R 777 data/seaweedfs
+    # SeaweedFS 권한 설정 (최소 권한)
+    chmod -R 755 data/seaweedfs
     
     log_info "디렉토리 생성 완료"
 }
@@ -101,7 +101,7 @@ health_check() {
     
     log_info "서비스 헬스체크 시작..."
     
-    local max_attempts=10
+    local max_attempts=30
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
@@ -111,7 +111,7 @@ health_check() {
         fi
         
         echo -n "."
-        sleep 2
+        sleep 5
         ((attempt++))
     done
     

@@ -39,6 +39,12 @@ services:
       - "9333:9333"
     networks:
       - default
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9333/cluster/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
   seaweedfs-volume:
     image: chrislusf/seaweedfs:latest
@@ -51,6 +57,12 @@ services:
       - seaweedfs-master
     networks:
       - default
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
   seaweedfs-filer:
     image: chrislusf/seaweedfs:latest
@@ -64,6 +76,12 @@ services:
       - seaweedfs-volume
     networks:
       - default
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8888/"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 150s
 
   # Optional: SeaweedFS Web UI (can be commented out for minimal setup)
   seaweedfs-webdav:

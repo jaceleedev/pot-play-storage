@@ -169,7 +169,7 @@ services:
     restart: unless-stopped
     command: >
       volume 
-      -ip=0.0.0.0
+      -ip=seaweedfs-volume
       -port=8080 
       -dir=/data 
       -mserver=seaweedfs-master:9333
@@ -185,10 +185,10 @@ services:
       - pot-storage-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/status"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
     logging:
       driver: "json-file"
       options:
@@ -218,10 +218,10 @@ services:
       - pot-storage-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8888/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 150s
     logging:
       driver: "json-file"
       options:

@@ -23,7 +23,7 @@ storage:
     master_url: seaweedfs-master:9333
 
 security:
-  api_key: your-api-key
+  api_key: pot_storage_api_key_2025
 
 log:
   level: info
