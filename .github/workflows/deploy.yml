@@ -154,72 +154,18 @@ jobs:
             echo "⚠️ 나중에 다음 값들을 수정하세요: DB_PASSWORD, REDIS_PASSWORD, API_KEY"
           fi
           
-          # 4. 기존 서비스 정리
-          echo "🛑 기존 서비스를 정리합니다..."
-          docker compose -f docker-compose.prod.yml down || true
+          # 4. deploy.sh 스크립트 실행 권한 부여
+          echo "🔧 배포 스크립트 권한 설정..."
+          chmod +x deploy.sh
           
-          # 5. Docker 볼륨 정리
-          echo "🗑️ 기존 Docker 볼륨을 제거합니다..."
-          docker volume rm pot-play-storage_postgres_data pot-play-storage_redis_data pot-play-storage_seaweedfs_master_data pot-play-storage_seaweedfs_volume_data pot-play-storage_seaweedfs_filer_data 2>/dev/null || true
+          # 5. GHCR 로그인을 위한 환경변수 설정
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          export GITHUB_ACTOR="${{ github.actor }}"
           
-          # 6. 디렉토리 구조 생성
-          echo "📁 필요한 디렉토리를 생성합니다..."
-          mkdir -p data/postgres
-          mkdir -p data/redis
-          mkdir -p data/seaweedfs/master
-          mkdir -p data/seaweedfs/volume
-          mkdir -p data/seaweedfs/filer
-          mkdir -p uploads
-          mkdir -p backups
+          # 6. deploy.sh 스크립트로 배포
+          echo "🚀 deploy.sh 스크립트로 배포 시작..."
+          ./deploy.sh deploy
           
-          # 7. 권한 설정
-          echo "🔐 디렉토리 권한을 설정합니다..."
-          chmod -R 755 data
-          chmod -R 777 data/seaweedfs
-          chmod -R 755 uploads
-          chmod -R 755 backups
-          
-          # 8. GHCR 로그인
-          echo "🔐 GitHub Container Registry 로그인..."
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # 9. 최신 이미지 pull
-          echo "📦 최신 Docker 이미지를 가져옵니다..."
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          
-          # 10. docker-compose.yml 업데이트
-          echo "📝 docker-compose.yml 업데이트..."
-          sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" docker-compose.prod.yml
-          
-          # 11. 서비스 시작
-          echo "🚀 새 버전을 시작합니다..."
-          docker compose -f docker-compose.prod.yml up -d
-          
-          # Postgres 로그 확인 (문제 진단용)
-          echo "🔍 PostgreSQL 상태 확인..."
-          sleep 5
-          docker compose -f docker-compose.prod.yml logs --tail=20 postgres || true
-          
-          # 12. 헬스 체크
-          echo "❤️ 헬스 체크 중..."
-          sleep 10
-          for i in {1..10}; do
-            if curl -f http://localhost:8090/health 2>/dev/null; then
-              echo "✅ 배포가 성공적으로 완료되었습니다!"
-              break
-            fi
-            echo "⏳ 서비스가 시작되기를 기다리는 중... ($i/10)"
-            sleep 2
-          done
-          
-          # 13. 컨테이너 상태 확인
-          echo "📊 컨테이너 상태:"
+          # 7. 배포 결과 확인
+          echo "📊 최종 배포 상태:"
           docker compose -f docker-compose.prod.yml ps
-          
-          # 14. 로그 확인
-          echo "📜 최근 로그:"
-          docker compose -f docker-compose.prod.yml logs --tail=20
-          
-          # 15. 오래된 이미지 정리
-          echo "🧹 오래된 이미지를 정리합니다..."
-          docker image prune -f

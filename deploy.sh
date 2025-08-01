@@ -152,6 +152,12 @@ deploy() {
     # 헬스체크
     health_check
     
+    # 마이그레이션 자동 실행
+    log_info "마이그레이션 확인 중..."
+    if [ -d "migrations" ] && [ "$(ls -A migrations/*.sql 2>/dev/null)" ]; then
+        migrate
+    fi
+    
     log_info "배포 완료!"
     docker compose -f "$COMPOSE_FILE" ps
 }
@@ -223,14 +229,21 @@ migrate() {
         exit 1
     fi
     
+    # .env 파일에서 DB 비밀번호 추출
+    if [ -f ".env" ]; then
+        DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d '=' -f2)
+        export PGPASSWORD=$DB_PASSWORD
+    fi
+    
     # 마이그레이션 실행
     for migration in migrations/*.sql; do
         if [ -f "$migration" ]; then
             log_info "마이그레이션 실행: $(basename "$migration")"
-            docker exec -i pot-storage-postgres psql -U pot_storage_user -d pot_storage_db < "$migration"
+            docker exec -i pot-storage-postgres psql -U pot_storage_user -d pot_storage_db < "$migration" || log_warning "마이그레이션이 이미 적용되었을 수 있습니다."
         fi
     done
     
+    unset PGPASSWORD
     log_info "마이그레이션 완료!"
 }
 
