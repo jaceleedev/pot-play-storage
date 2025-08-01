@@ -201,28 +201,18 @@ jobs:
           echo "📝 docker-compose.yml 업데이트..."
           sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" deploy/docker-compose.prod.yml
           
-          # 11. 서비스 시작 (의존성 순서대로)
+          # 11. 서비스 시작
           echo "🚀 새 버전을 시작합니다..."
           cd deploy
           
-          # SeaweedFS Master 먼저 시작
-          echo "🌱 SeaweedFS Master를 시작합니다..."
-          docker compose -f docker-compose.prod.yml up -d seaweedfs-master
-          
-          # Master가 준비될 때까지 대기
-          echo "⏳ SeaweedFS Master가 준비되기를 기다립니다..."
-          for i in {1..20}; do
-            if docker compose -f docker-compose.prod.yml exec seaweedfs-master wget -q -O- http://localhost:9333/cluster/status 2>/dev/null; then
-              echo "✅ SeaweedFS Master가 준비되었습니다!"
-              break
-            fi
-            echo "⏳ 대기 중... ($i/20)"
-            sleep 3
-          done
-          
-          # 나머지 서비스 시작
-          echo "🚀 나머지 서비스를 시작합니다..."
+          # 모든 서비스를 한번에 시작 (의존성은 docker-compose가 처리)
           docker compose -f docker-compose.prod.yml up -d
+          
+          # Postgres 로그 확인 (문제 진단용)
+          echo "🔍 PostgreSQL 상태 확인..."
+          sleep 5
+          docker compose -f docker-compose.prod.yml logs --tail=20 postgres || true
+          
           cd ..
           
           # 12. 헬스 체크
