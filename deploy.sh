@@ -229,21 +229,28 @@ migrate() {
         exit 1
     fi
     
-    # .env 파일에서 DB 비밀번호 추출
+    # .env 파일에서 DB 정보 추출
     if [ -f ".env" ]; then
-        DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d '=' -f2)
-        export PGPASSWORD=$DB_PASSWORD
+        DB_PASSWORD=$(grep "^DB_PASSWORD=" .env | cut -d '=' -f2 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        DB_USER=$(grep "^DB_USER=" .env | cut -d '=' -f2 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        DB_NAME=$(grep "^DB_NAME=" .env | cut -d '=' -f2 | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # 기본값 설정
+        DB_USER=${DB_USER:-pot_storage_user}
+        DB_NAME=${DB_NAME:-pot_storage_db}
+    else
+        log_error ".env 파일을 찾을 수 없습니다."
+        exit 1
     fi
     
     # 마이그레이션 실행
     for migration in migrations/*.sql; do
         if [ -f "$migration" ]; then
             log_info "마이그레이션 실행: $(basename "$migration")"
-            docker exec -i pot-storage-postgres psql -U pot_storage_user -d pot_storage_db < "$migration" || log_warning "마이그레이션이 이미 적용되었을 수 있습니다."
+            # PGPASSWORD를 docker exec 내부에서 설정
+            docker exec -i pot-storage-postgres sh -c "PGPASSWORD='$DB_PASSWORD' psql -U '$DB_USER' -d '$DB_NAME'" < "$migration" || log_warning "마이그레이션이 이미 적용되었을 수 있습니다."
         fi
     done
-    
-    unset PGPASSWORD
     log_info "마이그레이션 완료!"
 }
 
