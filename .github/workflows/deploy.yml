@@ -177,17 +177,14 @@ jobs:
           echo "🛑 기존 서비스를 중지합니다..."
           cd deploy && docker compose -f docker-compose.prod.yml stop api || true && cd ..
           
-          # 9. 데이터베이스 마이그레이션 실행
-          echo "🗄️ 데이터베이스 마이그레이션 실행..."
-          cd deploy && docker compose -f docker-compose.prod.yml run --rm api sh -c "
-            if [ -f /app/migrations/001_initial.sql ]; then
-              PGPASSWORD=\$DB_PASSWORD psql -h \$DB_HOST -U \$DB_USER -d \$DB_NAME -f /app/migrations/001_initial.sql || true
-            fi
-          " && cd ..
+          # 9. SeaweedFS 디렉토리 권한 설정
+          echo "🔐 SeaweedFS 디렉토리 권한 설정..."
+          chmod -R 777 deploy/data/seaweedfs
           
           # 10. 새 컨테이너 시작
           echo "🚀 새 버전을 시작합니다..."
-          cd deploy && docker compose -f docker-compose.prod.yml up -d && cd ..
+          cd deploy && docker compose -f docker-compose.prod.yml up -d
+          cd ..
           
           # 11. 헬스 체크
           echo "❤️ 헬스 체크 중..."
@@ -201,9 +198,14 @@ jobs:
             sleep 2
           done
           
-          # 12. 로그 확인
-          echo "📜 최근 로그:"
-          docker compose -f deploy/docker-compose.prod.yml logs --tail=50 api
+          # 12. 컨테이너 상태 및 로그 확인
+          echo "📊 컨테이너 상태:"
+          cd deploy && docker compose -f docker-compose.prod.yml ps
+          echo "📜 SeaweedFS Master 로그:"
+          docker compose -f docker-compose.prod.yml logs --tail=30 seaweedfs-master
+          echo "📜 API 로그:"
+          docker compose -f docker-compose.prod.yml logs --tail=30 api
+          cd ..
           
           # 13. 오래된 이미지 정리
           echo "🧹 오래된 이미지를 정리합니다..."
