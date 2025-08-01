@@ -152,23 +152,28 @@ jobs:
             exit 1
           fi
           
-          # 4. GHCR 로그인
+          # 4. 필요한 디렉토리 생성 (Docker 볼륨 마운트를 위해)
+          echo "📁 필요한 디렉토리를 생성합니다..."
+          mkdir -p data/{postgres,redis,seaweedfs/{master,volume,filer}}
+          mkdir -p uploads backups configs
+          
+          # 5. GHCR 로그인
           echo "🔐 GitHub Container Registry 로그인..."
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
-          # 5. 최신 이미지 pull
+          # 6. 최신 이미지 pull
           echo "📦 최신 Docker 이미지를 가져옵니다..."
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
-          # 6. docker-compose.yml 업데이트 (이미지 태그)
+          # 7. docker-compose.yml 업데이트 (이미지 태그)
           echo "📝 docker-compose.yml 업데이트..."
           sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" deploy/docker-compose.prod.yml
           
-          # 7. 기존 컨테이너 중지 및 백업
+          # 8. 기존 컨테이너 중지 및 백업
           echo "🛑 기존 서비스를 중지합니다..."
           docker compose -f deploy/docker-compose.prod.yml stop api || true
           
-          # 8. 데이터베이스 마이그레이션 실행
+          # 9. 데이터베이스 마이그레이션 실행
           echo "🗄️ 데이터베이스 마이그레이션 실행..."
           docker compose -f deploy/docker-compose.prod.yml run --rm api sh -c "
             if [ -f /app/migrations/001_initial.sql ]; then
@@ -176,11 +181,11 @@ jobs:
             fi
           "
           
-          # 9. 새 컨테이너 시작
+          # 10. 새 컨테이너 시작
           echo "🚀 새 버전을 시작합니다..."
           docker compose -f deploy/docker-compose.prod.yml up -d
           
-          # 10. 헬스 체크
+          # 11. 헬스 체크
           echo "❤️ 헬스 체크 중..."
           sleep 10
           for i in {1..30}; do
@@ -192,10 +197,10 @@ jobs:
             sleep 2
           done
           
-          # 11. 로그 확인
+          # 12. 로그 확인
           echo "📜 최근 로그:"
           docker compose -f deploy/docker-compose.prod.yml logs --tail=50 api
           
-          # 12. 오래된 이미지 정리
+          # 13. 오래된 이미지 정리
           echo "🧹 오래된 이미지를 정리합니다..."
           docker image prune -f
