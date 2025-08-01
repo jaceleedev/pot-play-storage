@@ -146,48 +146,36 @@ jobs:
           echo "🔄 최신 코드를 가져옵니다..."
           git pull origin main
           
-          # 3. 환경 변수 확인 및 복사
+          # 3. 환경 변수 확인
           if [ ! -f .env ]; then
             echo "❌ .env 파일이 없습니다. 생성해주세요!"
             exit 1
           fi
           
-          # deploy 디렉토리에 .env 파일 복사 (Docker Compose가 읽을 수 있도록)
-          cp .env deploy/.env
-          
-          # 4. 기존 서비스 정리 (중요: 볼륨 문제 해결)
+          # 4. 기존 서비스 정리
           echo "🛑 기존 서비스를 정리합니다..."
-          cd deploy
           docker compose -f docker-compose.prod.yml down || true
-          cd ..
           
-          # 5. Docker 볼륨 정리 (중요: 꼬인 볼륨 제거)
+          # 5. Docker 볼륨 정리
           echo "🗑️ 기존 Docker 볼륨을 제거합니다..."
-          docker volume rm deploy_postgres_data deploy_redis_data deploy_seaweedfs_master_data deploy_seaweedfs_volume_data deploy_seaweedfs_filer_data 2>/dev/null || true
+          docker volume rm pot-play-storage_postgres_data pot-play-storage_redis_data pot-play-storage_seaweedfs_master_data pot-play-storage_seaweedfs_volume_data pot-play-storage_seaweedfs_filer_data 2>/dev/null || true
           
-          # 6. 디렉토리 구조 생성 (절대 경로 사용)
+          # 6. 디렉토리 구조 생성
           echo "📁 필요한 디렉토리를 생성합니다..."
-          mkdir -p /home/pot-play-storage/deploy/data/postgres
-          mkdir -p /home/pot-play-storage/deploy/data/redis
-          mkdir -p /home/pot-play-storage/deploy/data/seaweedfs/master
-          mkdir -p /home/pot-play-storage/deploy/data/seaweedfs/volume
-          mkdir -p /home/pot-play-storage/deploy/data/seaweedfs/filer
-          mkdir -p /home/pot-play-storage/deploy/uploads
-          mkdir -p /home/pot-play-storage/deploy/backups
-          mkdir -p /home/pot-play-storage/deploy/configs
+          mkdir -p data/postgres
+          mkdir -p data/redis
+          mkdir -p data/seaweedfs/master
+          mkdir -p data/seaweedfs/volume
+          mkdir -p data/seaweedfs/filer
+          mkdir -p uploads
+          mkdir -p backups
           
-          # 7. 권한 설정 및 SeaweedFS 초기화
+          # 7. 권한 설정
           echo "🔐 디렉토리 권한을 설정합니다..."
-          chmod -R 755 /home/pot-play-storage/deploy/data
-          chmod -R 777 /home/pot-play-storage/deploy/data/seaweedfs
-          chmod -R 755 /home/pot-play-storage/deploy/uploads
-          chmod -R 755 /home/pot-play-storage/deploy/backups
-          
-          # SeaweedFS 데이터 초기화 (문제 해결을 위해)
-          echo "🌱 SeaweedFS 데이터를 초기화합니다..."
-          rm -rf /home/pot-play-storage/deploy/data/seaweedfs/master/*
-          rm -rf /home/pot-play-storage/deploy/data/seaweedfs/volume/*
-          rm -rf /home/pot-play-storage/deploy/data/seaweedfs/filer/*
+          chmod -R 755 data
+          chmod -R 777 data/seaweedfs
+          chmod -R 755 uploads
+          chmod -R 755 backups
           
           # 8. GHCR 로그인
           echo "🔐 GitHub Container Registry 로그인..."
@@ -199,21 +187,16 @@ jobs:
           
           # 10. docker-compose.yml 업데이트
           echo "📝 docker-compose.yml 업데이트..."
-          sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" deploy/docker-compose.prod.yml
+          sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" docker-compose.prod.yml
           
           # 11. 서비스 시작
           echo "🚀 새 버전을 시작합니다..."
-          cd deploy
-          
-          # 모든 서비스를 한번에 시작 (의존성은 docker-compose가 처리)
           docker compose -f docker-compose.prod.yml up -d
           
           # Postgres 로그 확인 (문제 진단용)
           echo "🔍 PostgreSQL 상태 확인..."
           sleep 5
           docker compose -f docker-compose.prod.yml logs --tail=20 postgres || true
-          
-          cd ..
           
           # 12. 헬스 체크
           echo "❤️ 헬스 체크 중..."
@@ -229,12 +212,11 @@ jobs:
           
           # 13. 컨테이너 상태 확인
           echo "📊 컨테이너 상태:"
-          cd deploy && docker compose -f docker-compose.prod.yml ps
+          docker compose -f docker-compose.prod.yml ps
           
           # 14. 로그 확인
           echo "📜 최근 로그:"
           docker compose -f docker-compose.prod.yml logs --tail=20
-          cd ..
           
           # 15. 오래된 이미지 정리
           echo "🧹 오래된 이미지를 정리합니다..."

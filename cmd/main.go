@@ -76,7 +76,8 @@ func main() {
 	api := r.Group("/api/v1/files")
 	{
 		api.POST("", hdl.Upload)
-		api.GET("/:id", hdl.Download)
+		api.GET("/:id", hdl.View)
+		api.GET("/:id/download", hdl.Download)
 		api.DELETE("/:id", hdl.Delete)
 		api.GET("", hdl.List)
 	}

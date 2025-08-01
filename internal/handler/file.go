@@ -177,3 +177,43 @@ func (h *FileHandler) List(c *gin.Context) {
 		"total": len(files),
 	})
 }
+
+// View handles inline file viewing in browser
+func (h *FileHandler) View(c *gin.Context) {
+	id := c.Param("id")
+	
+	// Basic input validation
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file ID required"})
+		return
+	}
+	
+	reader, file, err := h.service.Download(c.Request.Context(), id)
+	if err != nil {
+		h.logger.Error("view service failed", zap.Error(err), zap.String("file_id", id))
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+	defer reader.Close()
+	
+	// Sanitize filename for Content-Disposition header
+	safeName := fmt.Sprintf("file_%s", id)
+	if file.Name != "" {
+		safeName = file.Name
+	}
+	
+	// Set headers for inline viewing
+	c.Header("Content-Type", file.GetContentType())
+	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", safeName))
+	c.Header("Content-Length", fmt.Sprintf("%d", file.GetSize()))
+	c.Header("Cache-Control", "max-age=3600") // Allow caching for 1 hour
+	c.Header("X-Content-Type-Options", "nosniff")
+	
+	// Stream the file
+	_, err = io.Copy(c.Writer, reader)
+	if err != nil {
+		h.logger.Error("failed to stream file", zap.Error(err), zap.String("file_id", id))
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+}
