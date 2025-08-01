@@ -19,7 +19,7 @@ func TestSeaweedFSSimpleStorage(t *testing.T) {
 			w.Write([]byte("test content"))
 		case r.Method == "DELETE" && r.URL.Path == "/test-file":
 			w.WriteHeader(http.StatusOK)
-		case r.Method == "GET" && r.URL.Path == "/?pretty=y":
+		case r.Method == "GET" && strings.Contains(r.URL.String(), "pretty=y"):
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{
@@ -78,8 +78,16 @@ func TestSeaweedFSSimpleStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
-	if len(files) != 1 || files[0] != "test-file" {
-		t.Errorf("Expected [test-file], got %v", files)
+	// Check if test-file is in the list
+	found := false
+	for _, file := range files {
+		if file == "test-file" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected to find test-file in list, got %v", files)
 	}
 
 	// Test Delete

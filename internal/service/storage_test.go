@@ -76,8 +76,9 @@ func NewMockFileRepository() *MockFileRepository {
 
 func (m *MockFileRepository) GetStorageByHash(ctx context.Context, hash string) (*model.Storage, error) {
 	args := m.Called(ctx, hash)
-	if storage, exists := m.storages[hash]; exists {
-		return storage, args.Error(1)
+	// Return whatever the mock was configured to return
+	if args.Get(0) != nil {
+		return args.Get(0).(*model.Storage), args.Error(1)
 	}
 	return nil, args.Error(1)
 }
@@ -99,12 +100,8 @@ func (m *MockFileRepository) IncrementStorageRef(ctx context.Context, hash strin
 
 func (m *MockFileRepository) DecrementStorageRef(ctx context.Context, hash string) (int, error) {
 	args := m.Called(ctx, hash)
-	if storage, exists := m.storages[hash]; exists {
-		storage.ReferenceCount--
-		storage.UpdatedAt = time.Now()
-		return storage.ReferenceCount, args.Error(1)
-	}
-	return 0, args.Error(1)
+	// Return whatever the mock was configured to return
+	return args.Int(0), args.Error(1)
 }
 
 func (m *MockFileRepository) DeleteStorage(ctx context.Context, hash string) error {
@@ -129,10 +126,8 @@ func (m *MockFileRepository) GetByID(ctx context.Context, id string) (*model.Fil
 
 func (m *MockFileRepository) GetStorageHashByFileID(ctx context.Context, id string) (string, error) {
 	args := m.Called(ctx, id)
-	if file, exists := m.files[id]; exists {
-		return file.StorageHash, args.Error(1)
-	}
-	return "", args.Error(1)
+	// Return whatever the mock was configured to return
+	return args.String(0), args.Error(1)
 }
 
 func (m *MockFileRepository) DeleteByID(ctx context.Context, id string) error {
@@ -237,10 +232,11 @@ func TestStorageService_Upload_DuplicateFile(t *testing.T) {
 		UpdatedAt:      time.Now(),
 	}
 	
-	// Setup mocks - first call uploads, second call finds existing storage
+	// Setup mocks - for duplicate file, GetStorageByHash returns existing storage
 	mockStorage.On("Put", mock.Anything, mock.AnythingOfType("string"), mock.Anything, header.Size).Return(header.Size, nil)
-	mockStorage.On("Delete", mock.Anything, mock.AnythingOfType("string")).Return(nil) // Delete the duplicate upload
 	mockRepo.On("GetStorageByHash", mock.Anything, expectedHash).Return(existingStorage, nil)
+	// Since it's a duplicate, the newly uploaded file will be deleted
+	mockStorage.On("Delete", mock.Anything, mock.AnythingOfType("string")).Return(nil)
 	mockRepo.On("IncrementStorageRef", mock.Anything, expectedHash).Return(nil)
 	mockRepo.On("CreateFileReference", mock.Anything, mock.MatchedBy(func(f *model.File) bool {
 		return f.Name == header.Name && f.StorageHash == expectedHash
