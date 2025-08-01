@@ -1,0 +1,83 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8090:8090"  # 내부 포트도 8090으로 통일
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+      - seaweedfs-master
+      - seaweedfs-volume
+      - seaweedfs-filer
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: bucket_user
+      POSTGRES_PASSWORD: bucket_password
+      POSTGRES_DB: bucket_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # SeaweedFS Services
+  seaweedfs-master:
+    image: chrislusf/seaweedfs:latest
+    command: master -ip=seaweedfs-master -port=9333 -mdir=/data
+    volumes:
+      - seaweedfs_master_data:/data
+    ports:
+      - "9333:9333"
+    networks:
+      - default
+
+  seaweedfs-volume:
+    image: chrislusf/seaweedfs:latest
+    command: volume -ip=seaweedfs-volume -port=8080 -dir=/data -mserver=seaweedfs-master:9333
+    volumes:
+      - seaweedfs_volume_data:/data
+    ports:
+      - "8081:8080"
+    depends_on:
+      - seaweedfs-master
+    networks:
+      - default
+
+  seaweedfs-filer:
+    image: chrislusf/seaweedfs:latest
+    command: filer -ip=seaweedfs-filer -port=8888 -master=seaweedfs-master:9333
+    volumes:
+      - seaweedfs_filer_data:/data
+    ports:
+      - "8888:8888"
+    depends_on:
+      - seaweedfs-master
+      - seaweedfs-volume
+    networks:
+      - default
+
+  # Optional: SeaweedFS Web UI (can be commented out for minimal setup)
+  seaweedfs-webdav:
+    image: chrislusf/seaweedfs:latest
+    command: webdav -filer=seaweedfs-filer:8888
+    ports:
+      - "7333:7333"
+    depends_on:
+      - seaweedfs-filer
+    networks:
+      - default
+
+volumes:
+  postgres_data:
+  seaweedfs_master_data:
+  seaweedfs_volume_data:
+  seaweedfs_filer_data:
