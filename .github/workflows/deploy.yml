@@ -146,16 +146,20 @@ jobs:
           echo "🔄 최신 코드를 가져옵니다..."
           git pull origin main
           
-          # 3. 환경 변수 확인
+          # 3. 환경 변수 확인 및 복사
           if [ ! -f .env ]; then
             echo "❌ .env 파일이 없습니다. 생성해주세요!"
             exit 1
           fi
           
+          # deploy 디렉토리에 .env 파일 복사 (Docker Compose가 읽을 수 있도록)
+          cp .env deploy/.env
+          
           # 4. 필요한 디렉토리 생성 (Docker 볼륨 마운트를 위해)
           echo "📁 필요한 디렉토리를 생성합니다..."
-          mkdir -p data/{postgres,redis,seaweedfs/{master,volume,filer}}
-          mkdir -p uploads backups configs
+          mkdir -p deploy
+          mkdir -p deploy/data/{postgres,redis,seaweedfs/{master,volume,filer}}
+          mkdir -p deploy/{uploads,backups,configs}
           
           # 5. GHCR 로그인
           echo "🔐 GitHub Container Registry 로그인..."
@@ -171,19 +175,19 @@ jobs:
           
           # 8. 기존 컨테이너 중지 및 백업
           echo "🛑 기존 서비스를 중지합니다..."
-          docker compose -f deploy/docker-compose.prod.yml stop api || true
+          cd deploy && docker compose -f docker-compose.prod.yml stop api || true && cd ..
           
           # 9. 데이터베이스 마이그레이션 실행
           echo "🗄️ 데이터베이스 마이그레이션 실행..."
-          docker compose -f deploy/docker-compose.prod.yml run --rm api sh -c "
+          cd deploy && docker compose -f docker-compose.prod.yml run --rm api sh -c "
             if [ -f /app/migrations/001_initial.sql ]; then
               PGPASSWORD=\$DB_PASSWORD psql -h \$DB_HOST -U \$DB_USER -d \$DB_NAME -f /app/migrations/001_initial.sql || true
             fi
-          "
+          " && cd ..
           
           # 10. 새 컨테이너 시작
           echo "🚀 새 버전을 시작합니다..."
-          docker compose -f deploy/docker-compose.prod.yml up -d
+          cd deploy && docker compose -f docker-compose.prod.yml up -d && cd ..
           
           # 11. 헬스 체크
           echo "❤️ 헬스 체크 중..."
