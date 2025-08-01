@@ -1,0 +1,194 @@
+name: Pot-Play-Storage CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/pot-play-storage
+
+jobs:
+  # ===============================================
+  # 1. 테스트 Job: Go 코드 테스트 및 빌드 검증
+  # ===============================================
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run tests
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_USER: test_user
+        DB_PASSWORD: test_password
+        DB_NAME: test_db
+        DB_SSL_MODE: disable
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        API_KEY: test-api-key
+      run: go test -v -race ./...
+
+    - name: Build binary
+      run: go build -o bin/server ./cmd/main.go
+
+  # ===============================================
+  # 2. 빌드 & 푸시 Job: Docker 이미지 빌드하고 GHCR에 푸시
+  # ===============================================
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        platforms: linux/amd64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # ===============================================
+  # 3. 배포 Job: 서버에 배포
+  # ===============================================
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to Server via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: root
+        password: ${{ secrets.SSH_ROOT_PASSWORD }}
+        script: |
+          set -e
+          
+          # 1. 배포 디렉토리로 이동
+          cd /home/pot-storage
+          
+          # 2. 최신 코드 pull
+          echo "🔄 최신 코드를 가져옵니다..."
+          git pull origin main
+          
+          # 3. 환경 변수 확인
+          if [ ! -f .env ]; then
+            echo "❌ .env 파일이 없습니다. 생성해주세요!"
+            exit 1
+          fi
+          
+          # 4. GHCR 로그인
+          echo "🔐 GitHub Container Registry 로그인..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # 5. 최신 이미지 pull
+          echo "📦 최신 Docker 이미지를 가져옵니다..."
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          
+          # 6. docker-compose.yml 업데이트 (이미지 태그)
+          echo "📝 docker-compose.yml 업데이트..."
+          sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" deploy/docker-compose.prod.yml
+          
+          # 7. 기존 컨테이너 중지 및 백업
+          echo "🛑 기존 서비스를 중지합니다..."
+          docker compose -f deploy/docker-compose.prod.yml stop api || true
+          
+          # 8. 데이터베이스 마이그레이션 실행
+          echo "🗄️ 데이터베이스 마이그레이션 실행..."
+          docker compose -f deploy/docker-compose.prod.yml run --rm api sh -c "
+            if [ -f /app/migrations/001_initial.sql ]; then
+              PGPASSWORD=\$DB_PASSWORD psql -h \$DB_HOST -U \$DB_USER -d \$DB_NAME -f /app/migrations/001_initial.sql || true
+            fi
+          "
+          
+          # 9. 새 컨테이너 시작
+          echo "🚀 새 버전을 시작합니다..."
+          docker compose -f deploy/docker-compose.prod.yml up -d
+          
+          # 10. 헬스 체크
+          echo "❤️ 헬스 체크 중..."
+          sleep 10
+          for i in {1..30}; do
+            if curl -f http://localhost:8090/health; then
+              echo "✅ 배포가 성공적으로 완료되었습니다!"
+              break
+            fi
+            echo "⏳ 서비스가 시작되기를 기다리는 중... ($i/30)"
+            sleep 2
+          done
+          
+          # 11. 로그 확인
+          echo "📜 최근 로그:"
+          docker compose -f deploy/docker-compose.prod.yml logs --tail=50 api
+          
+          # 12. 오래된 이미지 정리
+          echo "🧹 오래된 이미지를 정리합니다..."
+          docker image prune -f

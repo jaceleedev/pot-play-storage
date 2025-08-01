@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Development
+.env
+.env.local
+.vscode/
+.idea/
+configs/config.local.yaml
+
+# Test files
+*_test.go
+*.test
+coverage.txt
+coverage.html
+
+# Build artifacts
+bin/
+dist/
+*.exe
+
+# Temporary files
+*.tmp
+*.log
+tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local uploads (will be mounted as volume)
+uploads/
+
+# Vendor (if using vendoring)
+vendor/
