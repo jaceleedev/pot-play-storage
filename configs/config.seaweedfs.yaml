@@ -1,0 +1,29 @@
+server:
+  port: 8090
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: postgres
+  port: 5432
+  user: bucket_user
+  password: bucket_password
+  name: bucket_db
+  ssl_mode: disable
+
+redis:
+  host: redis
+  port: 6379
+  db: 0
+
+storage:
+  type: seaweedfs
+  local_path: ./uploads
+  seaweedfs:
+    master_url: seaweedfs-master:9333
+
+security:
+  api_key: your-api-key
+
+log:
+  level: info
