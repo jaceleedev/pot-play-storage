@@ -132,8 +132,15 @@ jobs:
         script: |
           set -e
           
-          # 1. 배포 디렉토리로 이동
-          cd /home/pot-storage
+          # 1. 배포 디렉토리 확인 및 생성
+          if [ ! -d /home/pot-play-storage ]; then
+            echo "📁 배포 디렉토리를 생성합니다..."
+            mkdir -p /home/pot-play-storage
+            cd /home/pot-play-storage
+            git clone https://github.com/${{ github.repository }}.git .
+          else
+            cd /home/pot-play-storage
+          fi
           
           # 2. 최신 코드 pull
           echo "🔄 최신 코드를 가져옵니다..."
