@@ -1,0 +1,41 @@
+# 바이너리 파일
+/bin
+/server
+pot-play-storage
+
+# 환경 설정 파일
+.env
+.env.*
+!.env.example
+configs/config.local.yaml
+
+# 로그 파일
+*.log
+logs/
+
+# 데이터 디렉토리
+/data
+/uploads
+/backups
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# 테스트 커버리지
+coverage.*
+*.test
+
+# Go 디버그 파일
+*.pprof
+
+# 임시 파일
+*.tmp
+*.temp
