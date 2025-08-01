@@ -83,7 +83,7 @@ services:
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 --auth-local=scram-sha-256
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # - ./migrations:/docker-entrypoint-initdb.d:ro  # migrations 디렉토리가 없으면 주석처리
+      - ./migrations:/docker-entrypoint-initdb.d:ro
       - ${POSTGRES_BACKUP_PATH:-./backups}:/backups
     networks:
       - pot-storage-network
@@ -184,7 +184,7 @@ services:
     networks:
       - pot-storage-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/status"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://seaweedfs-volume:8080/status"]
       interval: 30s
       timeout: 10s
       retries: 10
