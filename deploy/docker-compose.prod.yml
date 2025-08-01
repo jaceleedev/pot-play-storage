@@ -83,7 +83,7 @@ services:
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 --auth-local=scram-sha-256
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro
+      # - ./migrations:/docker-entrypoint-initdb.d:ro  # migrations 디렉토리가 없으면 주석처리
       - ${POSTGRES_BACKUP_PATH:-./backups}:/backups
     networks:
       - pot-storage-network
