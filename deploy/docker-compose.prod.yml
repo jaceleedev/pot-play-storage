@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   api:
-    image: ghcr.io/pot-play/pot-storage:latest
+    image: ghcr.io/jaceleedev/pot-play-storage:latest
     container_name: pot-storage-api
     restart: unless-stopped
     ports:
