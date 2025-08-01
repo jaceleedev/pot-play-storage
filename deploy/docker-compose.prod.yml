@@ -29,7 +29,6 @@ services:
       
       # Security Configuration
       - API_KEY=${API_KEY}
-      - JWT_SECRET=${JWT_SECRET:-}
       
       # Server Configuration
       - SERVER_PORT=${SERVER_PORT:-8090}

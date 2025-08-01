@@ -126,7 +126,6 @@ REDIS_PASSWORD=your_secure_redis_password_here
 
 # 보안 키
 API_KEY=your-super-secret-api-key-here
-JWT_SECRET=your-jwt-secret-key-here
 
 # 스토리지 경로 (절대 경로)
 POSTGRES_DATA_PATH=/opt/pot-storage/data/postgres
@@ -424,7 +423,6 @@ REDIS_PASSWORD=your_redis_password
 
 # 보안
 API_KEY=your-super-secret-api-key
-JWT_SECRET=your-jwt-secret-key
 
 # 스토리지 경로
 POSTGRES_DATA_PATH=/opt/pot-storage/data/postgres
