@@ -155,58 +155,73 @@ jobs:
           # deploy 디렉토리에 .env 파일 복사 (Docker Compose가 읽을 수 있도록)
           cp .env deploy/.env
           
-          # 4. 필요한 디렉토리 생성 (Docker 볼륨 마운트를 위해)
-          echo "📁 필요한 디렉토리를 생성합니다..."
-          mkdir -p deploy
-          mkdir -p deploy/data/{postgres,redis,seaweedfs/{master,volume,filer}}
-          mkdir -p deploy/{uploads,backups,configs}
+          # 4. 기존 서비스 정리 (중요: 볼륨 문제 해결)
+          echo "🛑 기존 서비스를 정리합니다..."
+          cd deploy
+          docker compose -f docker-compose.prod.yml down || true
+          cd ..
           
-          # 5. GHCR 로그인
+          # 5. Docker 볼륨 정리 (중요: 꼬인 볼륨 제거)
+          echo "🗑️ 기존 Docker 볼륨을 제거합니다..."
+          docker volume rm deploy_postgres_data deploy_redis_data deploy_seaweedfs_master_data deploy_seaweedfs_volume_data deploy_seaweedfs_filer_data 2>/dev/null || true
+          
+          # 6. 디렉토리 구조 생성 (절대 경로 사용)
+          echo "📁 필요한 디렉토리를 생성합니다..."
+          mkdir -p /home/pot-play-storage/deploy/data/postgres
+          mkdir -p /home/pot-play-storage/deploy/data/redis
+          mkdir -p /home/pot-play-storage/deploy/data/seaweedfs/master
+          mkdir -p /home/pot-play-storage/deploy/data/seaweedfs/volume
+          mkdir -p /home/pot-play-storage/deploy/data/seaweedfs/filer
+          mkdir -p /home/pot-play-storage/deploy/uploads
+          mkdir -p /home/pot-play-storage/deploy/backups
+          mkdir -p /home/pot-play-storage/deploy/configs
+          
+          # 7. 권한 설정
+          echo "🔐 디렉토리 권한을 설정합니다..."
+          chmod -R 755 /home/pot-play-storage/deploy/data
+          chmod -R 777 /home/pot-play-storage/deploy/data/seaweedfs
+          chmod -R 755 /home/pot-play-storage/deploy/uploads
+          chmod -R 755 /home/pot-play-storage/deploy/backups
+          
+          # 8. GHCR 로그인
           echo "🔐 GitHub Container Registry 로그인..."
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
-          # 6. 최신 이미지 pull
+          # 9. 최신 이미지 pull
           echo "📦 최신 Docker 이미지를 가져옵니다..."
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
-          # 7. docker-compose.yml 업데이트 (이미지 태그)
+          # 10. docker-compose.yml 업데이트
           echo "📝 docker-compose.yml 업데이트..."
           sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" deploy/docker-compose.prod.yml
           
-          # 8. 기존 컨테이너 중지 및 백업
-          echo "🛑 기존 서비스를 중지합니다..."
-          cd deploy && docker compose -f docker-compose.prod.yml stop api || true && cd ..
-          
-          # 9. SeaweedFS 디렉토리 권한 설정
-          echo "🔐 SeaweedFS 디렉토리 권한 설정..."
-          chmod -R 777 deploy/data/seaweedfs
-          
-          # 10. 새 컨테이너 시작
+          # 11. 서비스 시작
           echo "🚀 새 버전을 시작합니다..."
-          cd deploy && docker compose -f docker-compose.prod.yml up -d
+          cd deploy
+          docker compose -f docker-compose.prod.yml up -d
           cd ..
           
-          # 11. 헬스 체크
+          # 12. 헬스 체크
           echo "❤️ 헬스 체크 중..."
-          sleep 10
+          sleep 15
           for i in {1..30}; do
-            if curl -f http://localhost:8090/health; then
+            if curl -f http://localhost:8090/health 2>/dev/null; then
               echo "✅ 배포가 성공적으로 완료되었습니다!"
               break
             fi
             echo "⏳ 서비스가 시작되기를 기다리는 중... ($i/30)"
-            sleep 2
+            sleep 3
           done
           
-          # 12. 컨테이너 상태 및 로그 확인
+          # 13. 컨테이너 상태 확인
           echo "📊 컨테이너 상태:"
           cd deploy && docker compose -f docker-compose.prod.yml ps
-          echo "📜 SeaweedFS Master 로그:"
-          docker compose -f docker-compose.prod.yml logs --tail=30 seaweedfs-master
-          echo "📜 API 로그:"
-          docker compose -f docker-compose.prod.yml logs --tail=30 api
+          
+          # 14. 로그 확인
+          echo "📜 최근 로그:"
+          docker compose -f docker-compose.prod.yml logs --tail=20
           cd ..
           
-          # 13. 오래된 이미지 정리
+          # 15. 오래된 이미지 정리
           echo "🧹 오래된 이미지를 정리합니다..."
           docker image prune -f
