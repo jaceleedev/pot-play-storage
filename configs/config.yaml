@@ -6,9 +6,9 @@ server:
 database:
   host: postgres
   port: 5432
-  user: bucket_user
-  password: bucket_password
-  name: bucket_db
+  user: pot_storage_user
+  password: pot_storage_secure_pass_2025
+  name: pot_storage_db
   ssl_mode: disable
 
 redis:
@@ -23,7 +23,7 @@ storage:
     master_url: seaweedfs-master:9333  # SeaweedFS master server URL
 
 security:
-  api_key: your-api-key # 초기 인증 키
+  api_key: pot_storage_api_key_2025 # 초기 인증 키
 
 log:
   level: info
