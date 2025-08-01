@@ -176,12 +176,18 @@ jobs:
           mkdir -p /home/pot-play-storage/deploy/backups
           mkdir -p /home/pot-play-storage/deploy/configs
           
-          # 7. 권한 설정
+          # 7. 권한 설정 및 SeaweedFS 초기화
           echo "🔐 디렉토리 권한을 설정합니다..."
           chmod -R 755 /home/pot-play-storage/deploy/data
           chmod -R 777 /home/pot-play-storage/deploy/data/seaweedfs
           chmod -R 755 /home/pot-play-storage/deploy/uploads
           chmod -R 755 /home/pot-play-storage/deploy/backups
+          
+          # SeaweedFS 데이터 초기화 (문제 해결을 위해)
+          echo "🌱 SeaweedFS 데이터를 초기화합니다..."
+          rm -rf /home/pot-play-storage/deploy/data/seaweedfs/master/*
+          rm -rf /home/pot-play-storage/deploy/data/seaweedfs/volume/*
+          rm -rf /home/pot-play-storage/deploy/data/seaweedfs/filer/*
           
           # 8. GHCR 로그인
           echo "🔐 GitHub Container Registry 로그인..."
@@ -195,9 +201,27 @@ jobs:
           echo "📝 docker-compose.yml 업데이트..."
           sed -i "s|image: .*pot-play-storage.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|g" deploy/docker-compose.prod.yml
           
-          # 11. 서비스 시작
+          # 11. 서비스 시작 (의존성 순서대로)
           echo "🚀 새 버전을 시작합니다..."
           cd deploy
+          
+          # SeaweedFS Master 먼저 시작
+          echo "🌱 SeaweedFS Master를 시작합니다..."
+          docker compose -f docker-compose.prod.yml up -d seaweedfs-master
+          
+          # Master가 준비될 때까지 대기
+          echo "⏳ SeaweedFS Master가 준비되기를 기다립니다..."
+          for i in {1..20}; do
+            if docker compose -f docker-compose.prod.yml exec seaweedfs-master wget -q -O- http://localhost:9333/cluster/status 2>/dev/null; then
+              echo "✅ SeaweedFS Master가 준비되었습니다!"
+              break
+            fi
+            echo "⏳ 대기 중... ($i/20)"
+            sleep 3
+          done
+          
+          # 나머지 서비스 시작
+          echo "🚀 나머지 서비스를 시작합니다..."
           docker compose -f docker-compose.prod.yml up -d
           cd ..
           
